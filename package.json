@@ -6,7 +6,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "NODE_ENV=production node dist/src/index.js",
-    "dev": "ts-node-dev --respawn --exit-child ./src/index.ts"
+    "dev": "ts-node-dev --respawn --exit-child ./src/index.ts",
+    "build": "tsc",
+    "prestart": "npm run build"
   },
   "dependencies": {
     "@prisma/client": "^3.3.0",
