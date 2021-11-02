@@ -11,6 +11,22 @@ app.use(
 );
 app.use(Express.json());
 
+app.get("/api/messages/:room", async (req, res) => {
+  const room = req.params.room;
+  const messages = await prisma.message.findMany({
+    where: {
+      room: {
+        name: room,
+      },
+    },
+    include: {
+      user: true,
+    },
+  });
+
+  res.json(messages);
+});
+
 app.post("/api/login", async (req, res) => {
   console.log(req.body);
   const user = await prisma.user.findFirst({

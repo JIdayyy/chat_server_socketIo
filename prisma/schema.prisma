@@ -17,22 +17,23 @@ model Message {
   createdAt DateTime
   user      User     @relation(fields: [userId], references: [id])
   room      Room     @relation(fields: [roomId], references: [id])
-  roomId    String  
+  roomId    String
 }
 
 model User {
-  id       String      @id @default(uuid())
+  id       String    @id @default(uuid())
   name     String
   email    String
   password String
   messages Message[]
+  Room     Room[]
+  roomId   String?
 }
 
 model Room {
-  id        String   @id @default(uuid())
-  name      String
-  messages  Message[]
-  user    String
+  id       String    @id @default(uuid())
+  name     String    @unique
+  messages Message[]
+  users    User[]
   socketId String
 }
-

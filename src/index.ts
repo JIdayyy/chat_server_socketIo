@@ -23,54 +23,99 @@ io.on("connection", (socket) => {
 
   socket.on("join", async ({ room, user }, callback) => {
     // const { user, error } = addUser({ id: socket.id, name, room });
-    console.log("payload", user);
+    console.log("payload", user, room);
     // if (error) return callback(error);
     // if (!user) return callback("User not found");
-    const newRoom = await prisma.room.create({
-      data: {
-        name: room,
-        user: user.name,
-        socketId: socket.id,
-      },
-    });
-    console.log("created", newRoom);
-    socket.emit("message", {
-      user: "admin",
-      text: `${newRoom.user}, welcome to ${newRoom.name}`,
-    });
+    try {
+      const foundedRoom = await prisma.room.findFirst({
+        where: {
+          name: room,
+        },
+        rejectOnNotFound: true,
+      });
+      if (!foundedRoom) {
+        const newRoom = await prisma.room.create({
+          data: {
+            name: room,
+            users: {
+              connect: {
+                id: user.id,
+              },
+            },
+            socketId: socket.id,
+          },
+        });
+        socket.emit("message", {
+          user: "admin",
+          text: `${user.name}, welcome to ${newRoom.name}`,
+        });
 
-    socket.broadcast
-      .to(newRoom.name)
-      .emit("message", { user: "admin", text: `${user.name} has joined!` });
+        socket.broadcast
+          .to(newRoom.name)
+          .emit("message", { user: "admin", text: `${user.name} has joined!` });
 
-    socket.join(newRoom.name);
+        socket.join(newRoom.name);
+      } else {
+        const foundedRoom = await prisma.room.update({
+          where: {
+            name: room,
+          },
+          data: {
+            users: {
+              connect: {
+                id: user.id,
+              },
+            },
+            socketId: socket.id,
+          },
+        });
 
-    callback();
+        socket.broadcast
+          .to(foundedRoom.name)
+          .emit("message", { user: "admin", text: `${user.name} has joined!` });
+
+        socket.join(foundedRoom.name);
+      }
+    } catch (error) {
+      console.log("error", error);
+    }
   });
 
-  socket.on("sendMessage", async (message, callback) => {
-    const room = await prisma.room.findFirst({
-      where: { socketId: socket.id },
-    });
-
-    if (!room) return callback("User not found");
-
-    io.to(room.name).emit("message", { user: room.user, text: message });
-
-    callback();
-  });
-
-  socket.on("disconnection", async (socket) => {
-    console.log("Client disconnected");
-    const deleted = await prisma.room.findFirst({
-      where: { socketId: socket.id },
+  socket.on("sendMessage", async ({ message, user, room }, callback) => {
+    console.log(room);
+    const Room = await prisma.room.findFirst({
+      where: { name: room },
       rejectOnNotFound: true,
     });
-    const room = await prisma.room.delete({
-      where: { id: deleted.id },
+
+    const Message = await prisma.message.create({
+      data: {
+        content: message,
+        createdAt: new Date().toISOString(),
+        user: {
+          connect: {
+            id: user.id,
+          },
+        },
+        room: {
+          connect: {
+            id: Room.id,
+          },
+        },
+      },
     });
-    const user = removeUser(socket.id);
-    console.log(user);
+
+    // if (!room) return callback("User not found");
+
+    io.to(Room.name).emit("message", { user: user, content: message });
+    callback();
+  });
+
+  socket.on("disconnection", async () => {
+    // console.log("Client disconnected");
+    // const deleted = await prisma.room.delete({
+    //   where: { name: room },
+    // });
   });
 
   socket.on("message", (message) => {
